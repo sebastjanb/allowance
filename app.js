@@ -112,7 +112,7 @@ const I18N = {
     syncCloud:"Connected. Everything syncs live between all devices.",
     syncOffline:"Offline — your presses are saved and will sync when you are back online.",
     syncLocal:"Local only. Add your Firebase keys in config.js to sync between devices.",
-    syncErr:"Could not reach the database. Working offline for now.",
+    syncErr:"Not connected to the database — presses are saved on this device only. Check that Firestore and Anonymous sign-in are both enabled in Firebase.",
     chipCloud:"Synced", chipOffline:"Offline", chipLocal:"Local", chipErr:"Error",
     earned:(a,n)=>`+${a} · ${n}`,
     alreadyDone:"Already done for this period.",
@@ -183,7 +183,7 @@ const I18N = {
     syncCloud:"Povezano. Vse se sproti sinhronizira med napravami.",
     syncOffline:"Brez povezave — pritiski so shranjeni in se bodo sinhronizirali kasneje.",
     syncLocal:"Samo lokalno. Vpiši Firebase ključe v config.js za sinhronizacijo.",
-    syncErr:"Baze ni bilo mogoče doseči. Zaenkrat delam brez povezave.",
+    syncErr:"Ni povezave z bazo — pritiski se shranjujejo samo na tej napravi. Preveri, da sta v Firebase vklopljena Firestore in anonimna prijava.",
     chipCloud:"Sinhrono", chipOffline:"Brez povezave", chipLocal:"Lokalno", chipErr:"Napaka",
     earned:(a,n)=>`+${a} · ${n}`,
     alreadyDone:"To obdobje je že opravljeno.",
@@ -353,9 +353,17 @@ async function CloudStore(){
     });
   } catch { db = fs.getFirestore(app); }
 
-  // Anonymous auth so security rules can require a signed-in user.
-  try { await auth.signInAnonymously(auth.getAuth(app)); }
-  catch (e){ console.warn("[allowance] anonymous auth unavailable:", e.code || e.message); }
+  // Anonymous auth so security rules can require a signed-in user. If this
+  // fails nothing can reach the server: Firestore listeners still fire from the
+  // local cache, which would otherwise make the app look connected when it is
+  // not. So the failure is recorded and reported rather than swallowed.
+  let authed = false, authErr = "";
+  try { await auth.signInAnonymously(auth.getAuth(app)); authed = true; }
+  catch (e){
+    authErr = e.code || e.message || String(e);
+    console.warn("[allowance] anonymous sign-in failed:", authErr);
+  }
+  const netStatus = () => !authed ? "error" : (navigator.onLine ? "cloud" : "offline");
 
   const root  = ["households", householdId()];
   const cCol  = fs.collection(db, ...root, "completions");
@@ -370,6 +378,7 @@ async function CloudStore(){
 
   const api = {
     mode:"cloud", status:"cloud", online:navigator.onLine,
+    get detail(){ return authErr; },
     get data(){
       // Before the totals doc exists (brand-new household) derive from the feed.
       if (!gotState){
@@ -459,13 +468,13 @@ async function CloudStore(){
       cache.paid      = d.paidTotal   || 0;
       cache.doneCount = d.doneCount   || 0;
     }
-    api.status = "cloud"; em.emit();
+    api.status = netStatus(); em.emit();
   }, err => { console.warn("[allowance] state listener:", err); api.status = "error"; em.emit(); });
 
   fs.onSnapshot(fs.query(cCol, fs.where("ts", ">=", since), fs.orderBy("ts", "desc")),
     snap => {
       cache.completions = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-      api.status = navigator.onLine ? "cloud" : "offline"; em.emit();
+      api.status = netStatus(); em.emit();
     },
     err => { console.warn("[allowance] completions listener:", err); api.status = "error"; em.emit(); });
 
@@ -482,7 +491,9 @@ async function CloudStore(){
     snap => { cache.payouts = snap.docs.map(d => ({ id:d.id, ...d.data() })); em.emit(); },
     err => console.warn("[allowance] payouts listener:", err));
 
-  const netFlag = () => { api.status = navigator.onLine ? "cloud" : "offline"; em.emit(); };
+  api.status = netStatus();
+
+  const netFlag = () => { api.status = netStatus(); em.emit(); };
   addEventListener("online", netFlag); addEventListener("offline", netFlag);
 
   return api;
@@ -598,7 +609,8 @@ function renderSyncHint(){
   const [chip, cls, hint] = map[st] || map.local;
   setText("syncLabel", chip);
   $("#syncDot").className = "dot " + cls;
-  $("#syncHint").textContent = hint;
+  const why = st === "error" && store && store.detail ? ` (${store.detail})` : "";
+  $("#syncHint").textContent = hint + why;
 }
 
 /* ------------------------------------------------------- manage tasks --- */

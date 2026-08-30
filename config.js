@@ -48,11 +48,11 @@ window.APP_CONFIG = {
    *  Leave them empty to stay in local-only mode.
    * ----------------------------------------------------------------------*/
   firebase: {
-    apiKey:            "",
-    authDomain:        "",
-    projectId:         "",
-    storageBucket:     "",
-    messagingSenderId: "",
-    appId:             ""
+    apiKey:            "AIzaSyA3AIxjUXzYipgVR9mBFksgWQZGRbCCSwY",
+    authDomain:        "allowance-90162.firebaseapp.com",
+    projectId:         "allowance-90162",
+    storageBucket:     "allowance-90162.firebasestorage.app",
+    messagingSenderId: "256955945332",
+    appId:             "1:256955945332:web:300f670b522789e3715c21"
   }
 };

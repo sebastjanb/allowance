@@ -1,8 +1,10 @@
 /* Allowance PWA — service worker.
    Bump CACHE when you change any file in SHELL. */
-const CACHE = "allowance-v5";
+/* Bump CACHE *and* the ?v= query on styles/config/app in index.html
+   together whenever you change those files. */
+const CACHE = "allowance-v6";
 const SHELL = [
-  "./", "./index.html", "./styles.css", "./app.js", "./config.js",
+  "./", "./index.html", "./styles.css?v=6", "./app.js?v=6", "./config.js?v=6",
   "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png",
   "./icons/icon-180.png", "./icons/favicon.svg"
