@@ -17,7 +17,7 @@
 <link rel="icon" href="icons/icon-192.png" sizes="192x192">
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 
-<link rel="stylesheet" href="styles.css?v=7">
+<link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
 
@@ -227,6 +227,15 @@
     <button class="btn btn-wide" id="reSetupBtn" type="button" hidden>Change PIN or family code</button>
   </div>
 
+  <div class="row stack" id="nameRow" hidden>
+    <label id="setChild">Child's name</label>
+    <p class="hint" id="childHint">—</p>
+    <div class="pinbox">
+      <input id="childInput" type="text" maxlength="24" autocomplete="off" placeholder="Luka">
+      <button class="btn" id="childSave" type="button">Save</button>
+    </div>
+  </div>
+
   <div class="row stack" id="manageRow" hidden>
     <label id="setTasks">Tasks</label>
     <p class="hint" id="tasksHint">—</p>
@@ -286,7 +295,7 @@
 <!-- toast ------------------------------------------------------------------ -->
 <div class="toast glass" id="toast" hidden><span id="toastText"></span></div>
 
-<script src="config.js?v=7"></script>
-<script type="module" src="app.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script type="module" src="app.js?v=8"></script>
 </body>
 </html>

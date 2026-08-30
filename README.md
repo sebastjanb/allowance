@@ -104,6 +104,8 @@ Note there is no household id or PIN to fill in here. See **Secrets** below.
     thing is available as **Undo** on every row in History.
   * **Add a task.** Settings → Tasks → *Add a task*: name, icon, reward and daily
     or weekly. It appears alongside the built-in chores on every device.
+  * **Child’s name.** Settings → *Child’s name*. Shows at the top of the app on
+    every device; leave it empty for a generic label.
   * **Remove a task**, and put it back with **Restore**.
   * **Erase all data** — see below.
 * **Removing a task** takes it off the tasks screen, the weekly grid and the

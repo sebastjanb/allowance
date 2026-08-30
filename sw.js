@@ -2,7 +2,7 @@
    Bump CACHE when you change any file in SHELL. */
 /* Bump CACHE *and* the ?v= query on styles/config/app in index.html
    together whenever you change those files. */
-const CACHE = "allowance-v7";
+const CACHE = "allowance-v8";
 const SHELL = [
   "./", "./index.html", "./styles.css?v=6", "./app.js?v=6", "./config.js?v=6",
   "./manifest.webmanifest",

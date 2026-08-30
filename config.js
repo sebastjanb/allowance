@@ -9,7 +9,8 @@
 window.APP_CONFIG = {
 
   /* Name shown on the dashboard. */
-  childName: "",              // e.g. "Luka" — leave empty to just say "Balance"
+  childName: "",              // fallback only. Set the name in the app:
+                              // Parent mode -> Settings -> Child’s name.
 
   /* Goal that turns the balance green. */
   goalAmount: 15,

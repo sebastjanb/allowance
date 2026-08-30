@@ -70,8 +70,10 @@ const BASE_TASKS = [
 /* Chores a parent added in Settings, and chores a parent removed. Both live in
    the shared database. Removal is deliberately a hide rather than a delete, so
    History keeps the name, emoji and amount of everything already earned. */
-let custom  = [];
-let removed = new Set();
+let custom    = [];
+let removed   = new Set();
+let childName = "";
+const resolvedChildName = () => childName || CFG.childName || "";
 
 const allTasks    = () => BASE_TASKS.concat(custom);
 const taskById    = id => allTasks().find(t => t.id === id) || null;
@@ -121,6 +123,9 @@ const I18N = {
     payoutNote:"Paid out", payoutDone:(a)=>`${a} paid out.`,
     undoConfirm:(n)=>`Undo “${n}”? The money is removed from the balance.`,
     undone:"Undone.", undo:"Undo", needParent:"Turn on Parent mode in Settings first.",
+    childLabel:"Child’s name", save:"Save",
+    childHint:"Shown at the top of the app, on every device. Leave it empty for none.",
+    childSaved:"Name saved.",
     manageTasks:"Tasks",
     manageHint:"Remove a chore to take it off the list. Money already earned from it stays on the balance and in History, and you can put it back any time.",
     remove:"Remove", restore:"Restore", removedTag:"Removed",
@@ -192,6 +197,9 @@ const I18N = {
     payoutNote:"Izplačano", payoutDone:(a)=>`Izplačano ${a}.`,
     undoConfirm:(n)=>`Razveljavim „${n}“? Denar se odšteje od stanja.`,
     undone:"Razveljavljeno.", undo:"Razveljavi", needParent:"Najprej vklopi starševski način v nastavitvah.",
+    childLabel:"Otrokovo ime", save:"Shrani",
+    childHint:"Prikazano na vrhu aplikacije, na vseh napravah. Pusti prazno, če ga nočeš.",
+    childSaved:"Ime shranjeno.",
     manageTasks:"Opravila",
     manageHint:"Odstrani opravilo, da izgine s seznama. Že prislužen denar ostane na stanju in v zgodovini, opravilo pa lahko kadar koli vrneš.",
     remove:"Odstrani", restore:"Vrni", removedTag:"Odstranjeno",
@@ -297,7 +305,7 @@ function LocalStore(){
   const load = () => {
     try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; }
   };
-  const blank = () => ({ completions:[], payouts:[], removed:[], custom:[] });
+  const blank = () => ({ completions:[], payouts:[], removed:[], custom:[], childName:"" });
   let db = Object.assign(blank(), load() || {});
   const persist = () => localStorage.setItem(KEY, JSON.stringify(db));
 
@@ -308,7 +316,8 @@ function LocalStore(){
       const paid   = db.payouts.reduce((s,p)=>s+p.amount,0);
       return { earned, paid, doneCount: db.completions.length,
                completions: db.completions, payouts: db.payouts,
-               removed: db.removed || [], custom: db.custom || [] };
+               removed: db.removed || [], custom: db.custom || [],
+               childName: db.childName || "" };
     },
     subscribe: em.subscribe,
     async complete(task){
@@ -327,7 +336,7 @@ function LocalStore(){
       db.payouts.push({ id:"p_"+Date.now(), amount, note, by:prefs.who, ts:Date.now() });
       persist(); em.emit();
     },
-    async setTaskConfig(patch){ Object.assign(db, patch); persist(); em.emit(); },
+    async setConfig(patch){ Object.assign(db, patch); persist(); em.emit(); },
     async resetAll(){ db = blank(); persist(); em.emit(); }
   };
   // keep another tab in this browser in step
@@ -375,7 +384,7 @@ async function CloudStore(){
   const tRef  = fs.doc(db, ...root, "state", "tasks");
 
   const em = makeEmitter();
-  const cache = { earned:0, paid:0, doneCount:0, completions:[], payouts:[], removed:[], custom:[] };
+  const cache = { earned:0, paid:0, doneCount:0, completions:[], payouts:[], removed:[], custom:[], childName:"" };
   let gotState = false;
 
   const api = {
@@ -437,7 +446,7 @@ async function CloudStore(){
       });
     },
 
-    async setTaskConfig(patch){
+    async setConfig(patch){
       await fs.setDoc(tRef, { ...patch, updatedAt:fs.serverTimestamp() }, { merge:true });
     },
 
@@ -456,7 +465,8 @@ async function CloudStore(){
       }
       await fs.setDoc(sRef, { earnedTotal:0, paidTotal:0, doneCount:0,
                               updatedAt:fs.serverTimestamp() });
-      await fs.setDoc(tRef, { removed:[], custom:[], updatedAt:fs.serverTimestamp() });
+      await fs.setDoc(tRef, { removed:[], custom:[], childName:"",
+                              updatedAt:fs.serverTimestamp() });
     }
   };
 
@@ -483,8 +493,9 @@ async function CloudStore(){
   fs.onSnapshot(tRef,
     snap => {
       const d = snap.exists() ? snap.data() : {};
-      cache.removed = d.removed || [];
-      cache.custom  = d.custom  || [];
+      cache.removed   = d.removed || [];
+      cache.custom    = d.custom  || [];
+      cache.childName = d.childName || "";
       em.emit();
     },
     err => console.warn("[allowance] task-config listener:", err));
@@ -561,7 +572,7 @@ function setText(id, value){ const el = document.getElementById(id); if (el) el.
 /* ---------------------------------------------------------- static text -- */
 function renderChrome(){
   document.documentElement.lang = prefs.lang;
-  setText("brandSub", L.brandSub(CFG.childName));
+  setText("brandSub", L.brandSub(resolvedChildName()));
   setText("ttlDaily",  L.dailyTasks);   setText("capDaily",  L.resetsMidnight);
   setText("ttlWeekly", L.weeklyTasks);  setText("capWeekly", L.resetsMonday);
   setFootnote();
@@ -577,6 +588,10 @@ function renderChrome(){
   setText("setTitle", L.settings); setText("setLang", L.language); setText("setTheme", L.appearance);
   setText("setWho", L.deviceUsedBy); setText("setParent", L.parentMode); setText("setSync", L.sync);
   setText("closeSheet", L.doneBtn);
+  setText("setChild", L.childLabel);
+  setText("childHint", L.childHint);
+  setText("childSave", L.save);
+  $("#nameRow").hidden = !prefs.parent;
   setText("setTasks", L.manageTasks);
   setText("tasksHint", L.manageHint);
   setText("addTaskBtn", L.addTask);
@@ -642,7 +657,7 @@ async function toggleTask(id){
   const off  = isRemoved(id);
   if (!off && !confirm(L.confirmRemove(taskName(t)))) return;
   const next = off ? [...removed].filter(x => x !== id) : [...removed, id];
-  await store.setTaskConfig({ removed: next });
+  await store.setConfig({ removed: next });
   removed = new Set(next);
   renderTaskManager();
   render();
@@ -671,7 +686,7 @@ async function addTask(){
     name, emoji, amount, cadence, custom: true, created: Date.now()
   };
   const next = [...custom.map(({ custom: _c, ...rest }) => rest), task];
-  await store.setTaskConfig({ custom: next });
+  await store.setConfig({ custom: next });
   custom = next.map(t => ({ ...t, custom: true }));
 
   $("#fName").value = ""; $("#fEmoji").value = ""; $("#fAmount").value = "1";
@@ -679,6 +694,15 @@ async function addTask(){
   renderTaskManager();
   render();
   toast(L.addedToast(name));
+}
+
+async function saveChildName(){
+  if (!prefs.parent) return toast(L.needParent);
+  const name = $("#childInput").value.trim().slice(0, 24);
+  await store.setConfig({ childName: name });
+  childName = name;
+  setText("brandSub", L.brandSub(resolvedChildName()));
+  toast(L.childSaved);
 }
 
 /* ------------------------------------------------------ erase all data -- */
@@ -881,11 +905,14 @@ function renderHistory(){
 function render(){
   if (!store) return;
   const data = store.data;
-  const sig  = JSON.stringify([data.removed || [], data.custom || []]);
+  const sig  = JSON.stringify([data.removed || [], data.custom || [], data.childName || ""]);
   if (sig !== taskConfigSig){
     taskConfigSig = sig;
-    removed = new Set(data.removed || []);
-    custom  = (data.custom || []).map(t => ({ ...t, custom:true }));
+    removed   = new Set(data.removed || []);
+    custom    = (data.custom || []).map(t => ({ ...t, custom:true }));
+    childName = data.childName || "";
+    setText("brandSub", L.brandSub(resolvedChildName()));
+    $("#childInput").value = childName;
     setFootnote();
     renderTaskManager();
   }
@@ -1096,6 +1123,8 @@ function wire(){
   $("#cancelAdd").addEventListener("click", () => openAddForm(false));
   $("#saveAdd").addEventListener("click", addTask);
   $("#dangerBtn").addEventListener("click", eraseAll);
+  $("#childSave").addEventListener("click", saveChildName);
+  $("#childInput").addEventListener("keydown", e => { if (e.key === "Enter") saveChildName(); });
   $("#reSetupBtn").addEventListener("click", async () => {
     if (!prefs.parent) return toast(L.needParent);
     closeSheet();
