@@ -3,10 +3,11 @@ rules_version = '2';
 // Firestore security rules for the Allowance PWA.
 // Console → Firestore Database → Rules → paste this → Publish.
 //
-// Any signed-in client (anonymous auth counts) may read and write inside your
-// household folder. That is deliberate: the app has no accounts, and the
-// household id in config.js is what keeps strangers out. Change that id to
-// something random and this is fine for a family app.
+// Any signed-in client (anonymous auth counts) may read and write inside a
+// household folder. That is deliberate: the app has no accounts, so what keeps
+// strangers out is not knowing your family code. The code is never committed --
+// each device is asked for it once, on its first run -- so pick something
+// nobody would guess and this is fine for a family app.
 service cloud.firestore {
   match /databases/{database}/documents {
 
