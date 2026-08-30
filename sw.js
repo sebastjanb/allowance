@@ -2,7 +2,7 @@
    Bump CACHE when you change any file in SHELL. */
 /* Bump CACHE *and* the ?v= query on styles/config/app in index.html
    together whenever you change those files. */
-const CACHE = "allowance-v8";
+const CACHE = "allowance-v9";
 const SHELL = [
   "./", "./index.html", "./styles.css?v=6", "./app.js?v=6", "./config.js?v=6",
   "./manifest.webmanifest",
@@ -43,8 +43,14 @@ self.addEventListener("fetch", e => {
 
   // App shell: network-first so updates land, cache as the offline fallback.
   if (url.origin === location.origin) {
+    // GitHub Pages serves index.html with max-age=600, so a plain fetch here
+    // can be answered by the browser's HTTP cache and keep handing out an old
+    // page — which then loads the old ?v= assets. Navigations must revalidate.
+    const fresh = req.mode === "navigate"
+      ? fetch(req.url, { cache: "reload", credentials: "same-origin" })
+      : fetch(req);
     e.respondWith(
-      fetch(req)
+      fresh
         .then(r => {
           if (r.ok) { const copy = r.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
           return r;
