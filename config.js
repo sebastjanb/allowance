@@ -12,7 +12,8 @@ window.APP_CONFIG = {
   childName: "",              // fallback only. Set the name in the app:
                               // Parent mode -> Settings -> Child’s name.
 
-  /* Goal that turns the balance green. */
+  /* Starting goal that turns the balance green. A parent can change it in the
+     app (Settings -> Goal); that shared value wins over this one. */
   goalAmount: 15,
   currency: "EUR",
   currencySymbol: "€",

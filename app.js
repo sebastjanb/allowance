@@ -8,7 +8,10 @@ const CFG = Object.assign({
   defaultLanguage: "en", parentPin: "", householdId: "", firebase: {}
 }, window.APP_CONFIG || {});
 
-const GOAL = Number(CFG.goalAmount) || 15;
+/* The goal that turns the balance green. Set in the app by a parent and shared
+   across devices; config.js only supplies the starting value. */
+let goalOverride = 0;
+const GOAL = () => goalOverride || Number(CFG.goalAmount) || 15;
 const SYM  = CFG.currencySymbol || "€";
 
 /* Parent PIN and family code live on the device, never in the published source.
@@ -128,6 +131,8 @@ const I18N = {
     payoutNote:"Paid out", payoutDone:(a)=>`${a} paid out.`,
     undoConfirm:(n)=>`Undo “${n}”? The money is removed from the balance.`,
     undone:"Undone.", undo:"Undo", needParent:"Turn on Parent mode in Settings first.",
+    goalLabel:"Goal", goalHint:"When the balance reaches this, it turns green. Shared across devices.",
+    goalSaved:(a)=>`Goal set to ${a}.`, badGoal:"The goal has to be between 0 and 9999.",
     rewardLabel:"Reward",
     rewardSaved:(n,a)=>`${n} is now worth ${a}.`,
     badAmount:"The reward has to be between 0 and 99.",
@@ -205,6 +210,8 @@ const I18N = {
     payoutNote:"Izplačano", payoutDone:(a)=>`Izplačano ${a}.`,
     undoConfirm:(n)=>`Razveljavim „${n}“? Denar se odšteje od stanja.`,
     undone:"Razveljavljeno.", undo:"Razveljavi", needParent:"Najprej vklopi starševski način v nastavitvah.",
+    goalLabel:"Cilj", goalHint:"Ko stanje doseže ta znesek, se obarva zeleno. Velja na vseh napravah.",
+    goalSaved:(a)=>`Cilj nastavljen na ${a}.`, badGoal:"Cilj mora biti med 0 in 9999.",
     rewardLabel:"Nagrada",
     rewardSaved:(n,a)=>`${n} je zdaj vreden ${a}.`,
     badAmount:"Nagrada mora biti med 0 in 99.",
@@ -316,7 +323,7 @@ function LocalStore(){
   const load = () => {
     try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; }
   };
-  const blank = () => ({ completions:[], payouts:[], removed:[], custom:[], amounts:{}, childName:"" });
+  const blank = () => ({ completions:[], payouts:[], removed:[], custom:[], amounts:{}, childName:"", goal:0 });
   let db = Object.assign(blank(), load() || {});
   const persist = () => localStorage.setItem(KEY, JSON.stringify(db));
 
@@ -328,7 +335,8 @@ function LocalStore(){
       return { earned, paid, doneCount: db.completions.length,
                completions: db.completions, payouts: db.payouts,
                removed: db.removed || [], custom: db.custom || [],
-               amounts: db.amounts || {}, childName: db.childName || "" };
+               amounts: db.amounts || {}, childName: db.childName || "",
+               goal: db.goal || 0 };
     },
     subscribe: em.subscribe,
     async complete(task){
@@ -395,7 +403,7 @@ async function CloudStore(){
   const tRef  = fs.doc(db, ...root, "state", "tasks");
 
   const em = makeEmitter();
-  const cache = { earned:0, paid:0, doneCount:0, completions:[], payouts:[], removed:[], custom:[], amounts:{}, childName:"" };
+  const cache = { earned:0, paid:0, doneCount:0, completions:[], payouts:[], removed:[], custom:[], amounts:{}, childName:"", goal:0 };
   let gotState = false;
 
   const api = {
@@ -476,7 +484,7 @@ async function CloudStore(){
       }
       await fs.setDoc(sRef, { earnedTotal:0, paidTotal:0, doneCount:0,
                               updatedAt:fs.serverTimestamp() });
-      await fs.setDoc(tRef, { removed:[], custom:[], amounts:{}, childName:"",
+      await fs.setDoc(tRef, { removed:[], custom:[], amounts:{}, childName:"", goal:0,
                               updatedAt:fs.serverTimestamp() });
     }
   };
@@ -508,6 +516,7 @@ async function CloudStore(){
       cache.custom    = d.custom  || [];
       cache.amounts   = d.amounts || {};
       cache.childName = d.childName || "";
+      cache.goal      = d.goal || 0;
       em.emit();
     },
     err => console.warn("[allowance] task-config listener:", err));
@@ -563,7 +572,7 @@ function derive(data){
   const balance = data.earned - data.paid;
   return { balance, today, week, streak, byDay, donePeriods,
            earned:data.earned, paid:data.paid, doneCount:data.doneCount,
-           atGoal: balance >= GOAL };
+           atGoal: balance >= GOAL() };
 }
 
 /* =============================================================================
@@ -600,6 +609,11 @@ function renderChrome(){
   setText("setTitle", L.settings); setText("setLang", L.language); setText("setTheme", L.appearance);
   setText("setWho", L.deviceUsedBy); setText("setParent", L.parentMode); setText("setSync", L.sync);
   setText("closeSheet", L.doneBtn);
+  setText("setGoal", L.goalLabel);
+  setText("goalHint", L.goalHint);
+  setText("goalSave", L.save);
+  $("#goalRow").hidden = !prefs.parent;
+  if (document.activeElement !== $("#goalInput")) $("#goalInput").value = GOAL();
   setText("setChild", L.childLabel);
   setText("childHint", L.childHint);
   setText("childSave", L.save);
@@ -733,6 +747,22 @@ async function addTask(){
   toast(L.addedToast(name));
 }
 
+async function saveGoal(){
+  if (!prefs.parent) return toast(L.needParent);
+  const raw   = $("#goalInput").value.trim().replace(",", ".");
+  const value = Math.round(parseFloat(raw) * 100) / 100;
+  if (!/^\d{1,4}(\.\d{1,2})?$/.test(raw) || !isFinite(value) || value <= 0){
+    $("#goalInput").value = GOAL();
+    return toast(L.badGoal);
+  }
+  if (value === GOAL()) return;
+  await store.setConfig({ goal: value });
+  goalOverride = value;
+  lastAtGoal = null;
+  render();
+  toast(L.goalSaved(money(value)));
+}
+
 async function saveChildName(){
   if (!prefs.parent) return toast(L.needParent);
   const name = $("#childInput").value.trim().slice(0, 24);
@@ -812,13 +842,13 @@ function renderTasks(d){
 
 /* ---------------------------------------------------------------- hero --- */
 function renderHero(d){
-  const pct = Math.max(0, Math.min(1, d.balance / GOAL));
+  const pct = Math.max(0, Math.min(1, d.balance / GOAL()));
   const C = 2 * Math.PI * 52;
   $("#ringFill").style.strokeDasharray  = C;
   $("#ringFill").style.strokeDashoffset = C * (1 - pct);
   setText("ringPct", Math.round(pct * 100) + "%");
   setText("heroAmount", moneyExact(d.balance));
-  setText("heroGoal", d.atGoal ? L.goalReached : L.toGo(money(GOAL - d.balance)));
+  setText("heroGoal", d.atGoal ? L.goalReached : L.toGo(money(GOAL() - d.balance)));
   setText("miniToday", money(d.today));
   setText("miniWeek",  money(d.week));
   setText("miniStreak", d.streak);
@@ -831,10 +861,10 @@ function renderDashboard(d){
   card.classList.toggle("goal", d.atGoal);
   $("#bcBadge").hidden = !d.atGoal;
   setText("bcAmount", moneyExact(d.balance));
-  const scale = Math.max(GOAL, d.balance);
+  const scale = Math.max(GOAL(), d.balance);
   $("#bcBar").style.width = (d.balance / scale) * 100 + "%";
-  $("#bcGoalTick").style.left = (GOAL / scale) * 100 + "%";
-  setText("bcFootLeft", L.goalLine(money(d.balance), money(GOAL)));
+  $("#bcGoalTick").style.left = (GOAL() / scale) * 100 + "%";
+  setText("bcFootLeft", L.goalLine(money(d.balance), money(GOAL())));
   setText("bcFootRight", d.atGoal ? L.goalReached : "");
   $("#bcActions").hidden = !(prefs.parent && d.balance > 0);
 
@@ -942,14 +972,18 @@ function renderHistory(){
 function render(){
   if (!store) return;
   const data = store.data;
-  const sig  = JSON.stringify([data.removed || [], data.custom || [],
-                               data.amounts || {}, data.childName || ""]);
+  const sig  = JSON.stringify([data.removed || [], data.custom || [], data.amounts || {},
+                               data.childName || "", data.goal || 0]);
   if (sig !== taskConfigSig){
     taskConfigSig = sig;
     removed   = new Set(data.removed || []);
     custom    = (data.custom || []).map(t => ({ ...t, custom:true }));
-    amounts   = data.amounts || {};
-    childName = data.childName || "";
+    amounts      = data.amounts || {};
+    childName    = data.childName || "";
+    goalOverride = data.goal || 0;
+    $("#goalInput").value = GOAL();
+    lastAtGoal = null;                 // a changed goal is not an achievement
+
     setText("brandSub", L.brandSub(resolvedChildName()));
     $("#childInput").value = childName;
     setFootnote();
@@ -1162,6 +1196,8 @@ function wire(){
   $("#cancelAdd").addEventListener("click", () => openAddForm(false));
   $("#saveAdd").addEventListener("click", addTask);
   $("#dangerBtn").addEventListener("click", eraseAll);
+  $("#goalSave").addEventListener("click", saveGoal);
+  $("#goalInput").addEventListener("keydown", e => { if (e.key === "Enter") saveGoal(); });
   $("#childSave").addEventListener("click", saveChildName);
   $("#taskManager").addEventListener("change", e => {
     const input = e.target.closest("[data-amount]");

@@ -17,7 +17,7 @@
 <link rel="icon" href="icons/icon-192.png" sizes="192x192">
 <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
 
-<link rel="stylesheet" href="styles.css?v=12">
+<link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
 
@@ -236,6 +236,16 @@
     </div>
   </div>
 
+  <div class="row stack" id="goalRow" hidden>
+    <label id="setGoal">Goal</label>
+    <p class="hint" id="goalHint">—</p>
+    <div class="pinbox">
+      <span class="tm-amt goal-amt"><span class="tm-cur">€</span>
+        <input id="goalInput" type="text" inputmode="decimal" maxlength="6" autocomplete="off"></span>
+      <button class="btn" id="goalSave" type="button">Save</button>
+    </div>
+  </div>
+
   <div class="row stack" id="manageRow" hidden>
     <label id="setTasks">Tasks</label>
     <p class="hint" id="tasksHint">—</p>
@@ -295,7 +305,7 @@
 <!-- toast ------------------------------------------------------------------ -->
 <div class="toast glass" id="toast" hidden><span id="toastText"></span></div>
 
-<script src="config.js?v=12"></script>
-<script type="module" src="app.js?v=12"></script>
+<script src="config.js?v=14"></script>
+<script type="module" src="app.js?v=14"></script>
 </body>
 </html>

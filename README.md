@@ -10,8 +10,9 @@ the home screen / dock, works offline, and syncs live between everyone's devices
 * **Weekly tasks — €4 each:** apartment vacuuming, cleaning bathroom. One press
   per task per week; resets Monday.
 * Perfect week = **€50** (€6 × 7 days + €8).
-* At **€15** the balance, the ring and the progress bar all turn **green**, with a
-  little confetti the moment the goal is crossed.
+* At the goal — **€15** to begin with, changeable in Settings — the balance, the
+  ring and the progress bar all turn **green**, with a little confetti the moment
+  it is crossed.
 * English / Slovenian, light / dark, Apple-style liquid glass in blue.
 
 ---
@@ -106,6 +107,8 @@ Note there is no household id or PIN to fill in here. See **Secrets** below.
     or weekly. It appears alongside the built-in chores on every device.
   * **Child’s name.** Settings → *Child’s name*. Shows at the top of the app on
     every device; leave it empty for a generic label.
+  * **Change the goal.** Settings → *Goal*. The balance turns green at this
+    amount; shared across devices.
   * **Change a reward.** Settings → Tasks → edit the amount next to any chore.
     It applies from the next tap onward; money already earned keeps the value it
     had on the day, and History is never rewritten.
@@ -203,6 +206,16 @@ makes installed copies drop their old bundle.
 Pages serves `index.html` with `max-age=600`, so the service worker revalidates
 navigations explicitly (`cache: "reload"`). Without that a device keeps loading a
 ten-minute-old page — and therefore the previous `?v=` assets — long after a push.
+
+## Sizing
+
+All horizontal spacing derives from one token, `--gutter` in `styles.css`:
+`clamp(10px, 3.4vw, 22px)`. Page margins, the header, the floating tab bar, the
+settings sheet and the first-run card all read from it, so the layout tightens on
+a small phone and relaxes on a tablet without any breakpoints. Card padding, tile
+size and section headings use the same `clamp()` approach, and the task grid is
+`minmax(min(150px, 47%), 1fr)` so it keeps two columns down to a 320px screen.
+Left and right notch insets are honoured via `max(var(--gutter), env(safe-area-inset-*))`.
 
 ## Files
 
