@@ -42,6 +42,11 @@ window.APP_CONFIG = {
      code on every family device. */
   householdId: "",
 
+  /* The Firestore database id. Firebase's default is the literal string
+     "(default)", parentheses included. If you typed a name in the Database ID
+     box when creating it, put that name here instead. */
+  firestoreDatabaseId: "default",
+
   /* ------------------------------------------------------------------------
    *  Firebase — paste the 6 values from
    *  Firebase console → Project settings → Your apps → SDK setup → Config

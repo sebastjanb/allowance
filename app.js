@@ -346,12 +346,14 @@ async function CloudStore(){
 
   const app = initializeApp(CFG.firebase);
 
+  const DB_ID = CFG.firestoreDatabaseId || "(default)";
+
   let db;
   try {
     db = fs.initializeFirestore(app, {
       localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() })
-    });
-  } catch { db = fs.getFirestore(app); }
+    }, DB_ID);
+  } catch { db = fs.getFirestore(app, DB_ID); }
 
   // Anonymous auth so security rules can require a signed-in user. If this
   // fails nothing can reach the server: Firestore listeners still fire from the
