@@ -186,6 +186,21 @@ After editing anything, bump `CACHE` in [`sw.js`](sw.js) (`allowance-v1` →
 `allowance-v2`) so installed copies pick the update up instead of serving the old
 cached files.
 
+## Deploying a change
+
+Push to `main`; GitHub Pages rebuilds in a minute or two. One rule when you edit
+`app.js`, `styles.css` or `config.js`:
+
+**bump the version in two places, and keep them equal** — `CACHE` in `sw.js`
+(`allowance-v9` → `allowance-v10`) and the `?v=` on the three tags at the top and
+bottom of `index.html`. The query string is what makes browsers fetch the new
+file rather than reuse the old one under the same URL, and the cache name is what
+makes installed copies drop their old bundle.
+
+Pages serves `index.html` with `max-age=600`, so the service worker revalidates
+navigations explicitly (`cache: "reload"`). Without that a device keeps loading a
+ten-minute-old page — and therefore the previous `?v=` assets — long after a push.
+
 ## Files
 
 | File | What it is |
