@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5">
+<title>Allowance</title>
+<meta name="description" content="Daily chores, real money. A family allowance tracker.">
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a1220" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef4ff" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Allowance">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ambient liquid-glass background ------------------------------------- -->
+<div class="ambient" aria-hidden="true">
+  <span class="blob blob-1"></span>
+  <span class="blob blob-2"></span>
+  <span class="blob blob-3"></span>
+  <span class="grain"></span>
+</div>
+
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<!-- first-run setup -------------------------------------------------------- -->
+<div class="setup" id="setup" hidden>
+  <div class="setup-card glass">
+    <span class="setup-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.8 10 17.6 19.2 7" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <h1 class="setup-title" id="setupTitle">Set up this device</h1>
+    <p class="hint" id="setupIntro">—</p>
+
+    <div class="field" id="codeField" hidden>
+      <label for="setupCode" id="lblCode">Family code</label>
+      <input id="setupCode" type="text" autocomplete="off" spellcheck="false" placeholder="brajer-8f3k2m">
+      <p class="hint hint-sm" id="codeHint">—</p>
+    </div>
+
+    <div class="field">
+      <label for="setupPin" id="lblSetupPin">Parent PIN</label>
+      <input id="setupPin" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••">
+      <p class="hint hint-sm" id="setupPinHint">—</p>
+    </div>
+
+    <button class="btn btn-primary btn-wide" id="setupGo" type="button">Start</button>
+  </div>
+</div>
+
+<!-- header --------------------------------------------------------------- -->
+<header class="topbar glass">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.8 10 17.6 19.2 7" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="brand-text">
+        <b id="brandTitle">Allowance</b>
+        <small id="brandSub">—</small>
+      </span>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="chip" id="syncChip" type="button" title="Sync status">
+        <span class="dot" id="syncDot"></span><span id="syncLabel">…</span>
+      </button>
+      <button class="icon-btn" id="settingsBtn" type="button" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 15.4a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z" stroke="currentColor" stroke-width="1.7"/><path d="M19.5 12c0-.5-.05-1-.14-1.47l2-1.55-2-3.46-2.37.95a7.6 7.6 0 0 0-2.55-1.48L14.1 2.5h-4l-.34 2.49a7.6 7.6 0 0 0-2.55 1.48l-2.37-.95-2 3.46 2 1.55a7.7 7.7 0 0 0 0 2.94l-2 1.55 2 3.46 2.37-.95a7.6 7.6 0 0 0 2.55 1.48l.34 2.49h4l.34-2.49a7.6 7.6 0 0 0 2.55-1.48l2.37.95 2-3.46-2-1.55c.09-.48.14-.97.14-1.47Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- tab bar --------------------------------------------------------------- -->
+<nav class="tabbar glass" id="tabbar">
+  <button class="tab is-active" data-view="tasks" type="button">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 12.5 9 17.5l11-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span data-i18n="tabTasks">Tasks</span>
+  </button>
+  <button class="tab" data-view="dashboard" type="button">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 19V10m5 9V5m5 14v-6m5 6V8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <span data-i18n="tabDash">Dashboard</span>
+  </button>
+  <button class="tab" data-view="history" type="button">
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.4V12l3 1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span data-i18n="tabHist">History</span>
+  </button>
+</nav>
+
+<!-- main ----------------------------------------------------------------- -->
+<main id="main">
+
+  <!-- ==================== TASKS ==================== -->
+  <section class="view" id="view-tasks">
+
+    <div class="hero glass" id="hero">
+      <div class="hero-top">
+      <div class="hero-ring">
+        <svg viewBox="0 0 120 120" class="ring">
+          <circle class="ring-track" cx="60" cy="60" r="52"/>
+          <circle class="ring-fill"  cx="60" cy="60" r="52" id="ringFill"/>
+        </svg>
+        <div class="hero-ring-center">
+          <span class="hero-ring-pct" id="ringPct">0%</span>
+          <span class="hero-ring-cap" id="ringCap">of goal</span>
+        </div>
+      </div>
+      <div class="hero-main">
+        <span class="hero-label" id="heroLabel">Balance</span>
+        <span class="hero-amount" id="heroAmount">€0.00</span>
+        <span class="hero-goal" id="heroGoal">€15.00 to go</span>
+      </div>
+      </div>
+      <div class="hero-mini">
+        <div><b id="miniToday">€0</b><small id="miniTodayCap">today</small></div>
+        <div><b id="miniWeek">€0</b><small id="miniWeekCap">this week</small></div>
+        <div><b id="miniStreak">0</b><small id="miniStreakCap">day streak</small></div>
+      </div>
+    </div>
+
+    <h2 class="section-title" id="secDaily"><span id="ttlDaily">Daily tasks</span><em id="capDaily">resets at midnight</em></h2>
+    <div class="task-grid" id="dailyTasks"></div>
+
+    <h2 class="section-title" id="secWeekly"><span id="ttlWeekly">Weekly tasks</span><em id="capWeekly">resets Monday</em></h2>
+    <div class="task-grid" id="weeklyTasks"></div>
+
+    <p class="empty-state" id="noTasks" hidden></p>
+    <p class="footnote" id="footnote"></p>
+  </section>
+
+  <!-- ==================== DASHBOARD ==================== -->
+  <section class="view" id="view-dashboard" hidden>
+
+    <div class="card glass balance-card" id="balanceCard">
+      <div class="bc-top">
+        <span class="bc-label" id="bcLabel">Current balance</span>
+        <span class="badge" id="bcBadge" hidden>Goal reached</span>
+      </div>
+      <div class="bc-amount" id="bcAmount">€0.00</div>
+      <div class="bar"><span class="bar-fill" id="bcBar"></span><span class="bar-goal" id="bcGoalTick"></span></div>
+      <div class="bc-foot"><span id="bcFootLeft">€0 / €15 goal</span><span id="bcFootRight"></span></div>
+      <div class="bc-actions" id="bcActions" hidden>
+        <button class="btn btn-primary" id="payoutBtn" type="button">Pay out</button>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="card glass stat"><small id="sEarnedCap">Earned all-time</small><b id="sEarned">€0</b></div>
+      <div class="card glass stat"><small id="sPaidCap">Paid out</small><b id="sPaid">€0</b></div>
+      <div class="card glass stat"><small id="sWeekCap">This week</small><b id="sWeek">€0</b></div>
+      <div class="card glass stat"><small id="sDoneCap">Tasks done</small><b id="sDone">0</b></div>
+    </div>
+
+    <div class="card glass">
+      <h3 class="card-title" id="chartTitle">Last 14 days</h3>
+      <div class="chart" id="chart"></div>
+      <div class="chart-legend"><span id="chartLegend">Each bar is one day of earnings</span></div>
+    </div>
+
+    <div class="card glass">
+      <h3 class="card-title" id="weekGridTitle">This week</h3>
+      <div class="matrix" id="matrix"></div>
+    </div>
+
+    <div class="card glass">
+      <h3 class="card-title" id="perTaskTitle">Per task — last 30 days</h3>
+      <div class="pertask" id="perTask"></div>
+    </div>
+  </section>
+
+  <!-- ==================== HISTORY ==================== -->
+  <section class="view" id="view-history" hidden>
+    <div class="card glass">
+      <h3 class="card-title" id="histTitle">Activity</h3>
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </section>
+</main>
+
+<!-- settings sheet -------------------------------------------------------- -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="sheet glass" id="sheet" hidden aria-modal="true" role="dialog">
+  <div class="sheet-grabber"></div>
+  <h2 class="sheet-title" id="setTitle">Settings</h2>
+
+  <div class="row">
+    <label id="setLang">Language</label>
+    <div class="segmented" id="langSeg">
+      <button data-lang="en" type="button">English</button>
+      <button data-lang="sl" type="button">Slovenščina</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <label id="setTheme">Appearance</label>
+    <div class="segmented" id="themeSeg">
+      <button data-theme="auto" type="button" data-i18n="themeAuto">Auto</button>
+      <button data-theme="light" type="button" data-i18n="themeLight">Light</button>
+      <button data-theme="dark" type="button" data-i18n="themeDark">Dark</button>
+    </div>
+  </div>
+
+  <div class="row">
+    <label id="setWho">This device is used by</label>
+    <div class="segmented" id="whoSeg">
+      <button data-who="child" type="button" data-i18n="whoChild">Child</button>
+      <button data-who="parent" type="button" data-i18n="whoParent">Parent</button>
+    </div>
+  </div>
+
+  <div class="row stack" id="parentRow">
+    <label id="setParent">Parent mode</label>
+    <p class="hint" id="parentHint">Unlock to pay out the balance and undo a task pressed by mistake.</p>
+    <div class="pinbox">
+      <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" maxlength="8">
+      <button class="btn" id="pinBtn" type="button" data-i18n="unlock">Unlock</button>
+    </div>
+    <button class="btn btn-wide" id="reSetupBtn" type="button" hidden>Change PIN or family code</button>
+  </div>
+
+  <div class="row stack" id="manageRow" hidden>
+    <label id="setTasks">Tasks</label>
+    <p class="hint" id="tasksHint">—</p>
+    <div class="tasklist" id="taskManager"></div>
+
+    <button class="btn btn-wide" id="addTaskBtn" type="button">Add a task</button>
+
+    <div class="addform" id="addForm" hidden>
+      <h3 class="addform-title" id="addTitle">New task</h3>
+
+      <div class="field">
+        <label for="fName" id="lblName">Name</label>
+        <input id="fName" type="text" maxlength="40" autocomplete="off" placeholder="Water the plants">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="fEmoji" id="lblEmoji">Icon</label>
+          <input id="fEmoji" type="text" maxlength="4" autocomplete="off" placeholder="⭐">
+        </div>
+        <div class="field">
+          <label for="fAmount" id="lblAmount">Reward</label>
+          <input id="fAmount" type="number" min="0.5" step="0.5" value="1" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="field">
+        <label id="lblCadence">Repeats</label>
+        <div class="segmented" id="fCadence">
+          <button data-cadence="daily" class="on" type="button" data-i18n="fDaily">Daily</button>
+          <button data-cadence="weekly" type="button" data-i18n="fWeekly">Weekly</button>
+        </div>
+      </div>
+
+      <div class="addform-actions">
+        <button class="btn" id="cancelAdd" type="button" data-i18n="fCancel">Cancel</button>
+        <button class="btn btn-primary" id="saveAdd" type="button" data-i18n="fAdd">Add task</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row stack">
+    <label id="setSync">Sync</label>
+    <p class="hint" id="syncHint">—</p>
+  </div>
+
+  <div class="row stack" id="dangerRow" hidden>
+    <label id="dangerTitle">Reset everything</label>
+    <p class="hint" id="dangerHint">—</p>
+    <button class="btn btn-danger btn-wide" id="dangerBtn" type="button">Erase all data</button>
+  </div>
+
+  <button class="btn btn-wide" id="closeSheet" type="button" data-i18n="done">Done</button>
+  <p class="version">Allowance PWA · v1.0</p>
+</aside>
+
+<!-- toast ------------------------------------------------------------------ -->
+<div class="toast glass" id="toast" hidden><span id="toastText"></span></div>
+
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
