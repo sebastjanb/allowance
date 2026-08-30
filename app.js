@@ -72,10 +72,15 @@ const BASE_TASKS = [
    History keeps the name, emoji and amount of everything already earned. */
 let custom    = [];
 let removed   = new Set();
+let amounts   = {};          // taskId -> reward, overriding the built-in value
 let childName = "";
 const resolvedChildName = () => childName || CFG.childName || "";
 
-const allTasks    = () => BASE_TASKS.concat(custom);
+/* A reward the parent has edited wins over the task's built-in value. Past
+   completions keep the amount they were worth on the day, because each stored
+   completion carries its own, so changing a reward never rewrites history. */
+const withAmount  = t => (t.id in amounts ? { ...t, amount: amounts[t.id] } : t);
+const allTasks    = () => BASE_TASKS.concat(custom).map(withAmount);
 const taskById    = id => allTasks().find(t => t.id === id) || null;
 const isRemoved   = id => removed.has(id);
 const activeTasks = () => allTasks().filter(t => !removed.has(t.id));
@@ -123,11 +128,14 @@ const I18N = {
     payoutNote:"Paid out", payoutDone:(a)=>`${a} paid out.`,
     undoConfirm:(n)=>`Undo “${n}”? The money is removed from the balance.`,
     undone:"Undone.", undo:"Undo", needParent:"Turn on Parent mode in Settings first.",
+    rewardLabel:"Reward",
+    rewardSaved:(n,a)=>`${n} is now worth ${a}.`,
+    badAmount:"The reward has to be between 0 and 99.",
     childLabel:"Child’s name", save:"Save",
     childHint:"Shown at the top of the app, on every device. Leave it empty for none.",
     childSaved:"Name saved.",
     manageTasks:"Tasks",
-    manageHint:"Remove a chore to take it off the list. Money already earned from it stays on the balance and in History, and you can put it back any time.",
+    manageHint:"Change what a chore is worth, or remove it from the list. A new reward applies only to future taps — money already earned stays as it was, and a removed chore keeps its History. Removed chores can be restored any time.",
     remove:"Remove", restore:"Restore", removedTag:"Removed",
     confirmRemove:(n)=>`Remove “${n}” from the task list?`,
     removedToast:(n)=>`“${n}” removed.`, restoredToast:(n)=>`“${n}” is back.`,
@@ -197,11 +205,14 @@ const I18N = {
     payoutNote:"Izplačano", payoutDone:(a)=>`Izplačano ${a}.`,
     undoConfirm:(n)=>`Razveljavim „${n}“? Denar se odšteje od stanja.`,
     undone:"Razveljavljeno.", undo:"Razveljavi", needParent:"Najprej vklopi starševski način v nastavitvah.",
+    rewardLabel:"Nagrada",
+    rewardSaved:(n,a)=>`${n} je zdaj vreden ${a}.`,
+    badAmount:"Nagrada mora biti med 0 in 99.",
     childLabel:"Otrokovo ime", save:"Shrani",
     childHint:"Prikazano na vrhu aplikacije, na vseh napravah. Pusti prazno, če ga nočeš.",
     childSaved:"Ime shranjeno.",
     manageTasks:"Opravila",
-    manageHint:"Odstrani opravilo, da izgine s seznama. Že prislužen denar ostane na stanju in v zgodovini, opravilo pa lahko kadar koli vrneš.",
+    manageHint:"Spremeni vrednost opravila ali ga odstrani s seznama. Nova nagrada velja samo za naprej — že prislužen denar ostane tak, kot je bil, odstranjeno opravilo pa obdrži svojo zgodovino. Odstranjena opravila lahko kadar koli vrneš.",
     remove:"Odstrani", restore:"Vrni", removedTag:"Odstranjeno",
     confirmRemove:(n)=>`Odstranim „${n}“ s seznama opravil?`,
     removedToast:(n)=>`„${n}“ odstranjeno.`, restoredToast:(n)=>`„${n}“ je nazaj.`,
@@ -305,7 +316,7 @@ function LocalStore(){
   const load = () => {
     try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; }
   };
-  const blank = () => ({ completions:[], payouts:[], removed:[], custom:[], childName:"" });
+  const blank = () => ({ completions:[], payouts:[], removed:[], custom:[], amounts:{}, childName:"" });
   let db = Object.assign(blank(), load() || {});
   const persist = () => localStorage.setItem(KEY, JSON.stringify(db));
 
@@ -317,7 +328,7 @@ function LocalStore(){
       return { earned, paid, doneCount: db.completions.length,
                completions: db.completions, payouts: db.payouts,
                removed: db.removed || [], custom: db.custom || [],
-               childName: db.childName || "" };
+               amounts: db.amounts || {}, childName: db.childName || "" };
     },
     subscribe: em.subscribe,
     async complete(task){
@@ -384,7 +395,7 @@ async function CloudStore(){
   const tRef  = fs.doc(db, ...root, "state", "tasks");
 
   const em = makeEmitter();
-  const cache = { earned:0, paid:0, doneCount:0, completions:[], payouts:[], removed:[], custom:[], childName:"" };
+  const cache = { earned:0, paid:0, doneCount:0, completions:[], payouts:[], removed:[], custom:[], amounts:{}, childName:"" };
   let gotState = false;
 
   const api = {
@@ -465,7 +476,7 @@ async function CloudStore(){
       }
       await fs.setDoc(sRef, { earnedTotal:0, paidTotal:0, doneCount:0,
                               updatedAt:fs.serverTimestamp() });
-      await fs.setDoc(tRef, { removed:[], custom:[], childName:"",
+      await fs.setDoc(tRef, { removed:[], custom:[], amounts:{}, childName:"",
                               updatedAt:fs.serverTimestamp() });
     }
   };
@@ -495,6 +506,7 @@ async function CloudStore(){
       const d = snap.exists() ? snap.data() : {};
       cache.removed   = d.removed || [];
       cache.custom    = d.custom  || [];
+      cache.amounts   = d.amounts || {};
       cache.childName = d.childName || "";
       em.emit();
     },
@@ -640,9 +652,14 @@ function renderTaskManager(){
         <span class="tm-em">${t.emoji}</span>
         <span class="tm-body">
           <span class="tm-name">${taskName(t)}</span>
-          <span class="tm-meta">${money(t.amount)} · ${
-            t.cadence === "weekly" ? L.perWeek : L.perDay}${
+          <span class="tm-meta">${t.cadence === "weekly" ? L.perWeek : L.perDay}${
             t.custom ? " · " + L.customTag : ""}${off ? " · " + L.removedTag : ""}</span>
+        </span>
+        <span class="tm-amt">
+          <span class="tm-cur">${SYM}</span>
+          <input type="text" inputmode="decimal" autocomplete="off" maxlength="5"
+                 value="${t.amount}" data-amount="${t.id}" aria-label="${L.rewardLabel}"
+                 ${off ? "disabled" : ""}>
         </span>
         <button class="tm-btn${off ? " restore" : ""}" data-toggle-task="${t.id}" type="button">${
           off ? L.restore : L.remove}</button>
@@ -664,6 +681,26 @@ async function toggleTask(id){
   toast(off ? L.restoredToast(taskName(t)) : L.removedToast(taskName(t)));
 }
 
+async function saveAmount(input){
+  if (!prefs.parent) return toast(L.needParent);
+  const id = input.dataset.amount;
+  const t  = taskById(id);
+  if (!t) return;
+  const raw   = String(input.value).trim().replace(",", ".");
+  const value = Math.round(parseFloat(raw) * 100) / 100;
+  if (!/^\d{1,2}(\.\d{1,2})?$/.test(raw) || !isFinite(value) || value <= 0 || value > 99){
+    input.value = t.amount;
+    return toast(L.badAmount);
+  }
+  if (value === t.amount) return;                 // nothing to save
+  const next = { ...amounts, [id]: value };
+  await store.setConfig({ amounts: next });
+  amounts = next;
+  setFootnote();
+  render();
+  toast(L.rewardSaved(taskName(t), money(value)));
+}
+
 /* --------------------------------------------------------- add a task --- */
 function openAddForm(open){
   $("#addForm").hidden = !open;
@@ -675,7 +712,7 @@ async function addTask(){
   if (!prefs.parent) return toast(L.needParent);
   const name   = $("#fName").value.trim();
   const emoji  = ($("#fEmoji").value.trim() || "⭐").slice(0, 4);
-  const amount = Math.round(parseFloat(String($("#fAmount").value).replace(",", ".")) * 100) / 100;
+  const amount = Math.round(parseFloat(String($("#fAmount").value).trim().replace(",", ".")) * 100) / 100;
   const cadence = $("#fCadence").querySelector("button.on")?.dataset.cadence || "daily";
 
   if (!name)                        return toast(L.needName);
@@ -751,7 +788,7 @@ function renderTasks(d){
     const head = $(cadence === "daily" ? "#secDaily" : "#secWeekly");
     head.hidden = host.hidden = list.length === 0;
 
-    const sig = prefs.lang + "|" + list.map(t => t.id).join(",");
+    const sig = prefs.lang + "|" + list.map(t => t.id + ":" + t.amount).join(",");
     if (host.dataset.sig !== sig){
       host.dataset.sig = sig;
       host.innerHTML = list.map(t => tileHTML(t, false)).join("");
@@ -905,11 +942,13 @@ function renderHistory(){
 function render(){
   if (!store) return;
   const data = store.data;
-  const sig  = JSON.stringify([data.removed || [], data.custom || [], data.childName || ""]);
+  const sig  = JSON.stringify([data.removed || [], data.custom || [],
+                               data.amounts || {}, data.childName || ""]);
   if (sig !== taskConfigSig){
     taskConfigSig = sig;
     removed   = new Set(data.removed || []);
     custom    = (data.custom || []).map(t => ({ ...t, custom:true }));
+    amounts   = data.amounts || {};
     childName = data.childName || "";
     setText("brandSub", L.brandSub(resolvedChildName()));
     $("#childInput").value = childName;
@@ -1124,6 +1163,13 @@ function wire(){
   $("#saveAdd").addEventListener("click", addTask);
   $("#dangerBtn").addEventListener("click", eraseAll);
   $("#childSave").addEventListener("click", saveChildName);
+  $("#taskManager").addEventListener("change", e => {
+    const input = e.target.closest("[data-amount]");
+    if (input) saveAmount(input);
+  });
+  $("#taskManager").addEventListener("keydown", e => {
+    if (e.key === "Enter" && e.target.closest("[data-amount]")) e.target.blur();
+  });
   $("#childInput").addEventListener("keydown", e => { if (e.key === "Enter") saveChildName(); });
   $("#reSetupBtn").addEventListener("click", async () => {
     if (!prefs.parent) return toast(L.needParent);

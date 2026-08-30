@@ -369,7 +369,8 @@ button{ font:inherit; color:inherit; }
 
 /* ---------- manage tasks ---------- */
 .tasklist{ display:flex; flex-direction:column; gap:2px; }
-.tm{ display:flex; align-items:center; gap:11px; padding:9px 0; }
+.tm{ display:flex; align-items:center; gap:10px; padding:10px 0; flex-wrap:wrap; }
+.tm-body{ flex:1 1 120px; }
 .tm + .tm{ border-top:1px solid var(--hairline); }
 .tm-em{ width:34px; height:34px; flex:none; border-radius:11px; display:grid; place-items:center;
   font-size:17px; background:rgba(10,132,255,.12); }
@@ -377,6 +378,21 @@ button{ font:inherit; color:inherit; }
 .tm-name{ display:block; font-size:14px; font-weight:600; letter-spacing:-.01em; }
 .tm-meta{ display:block; font-size:11.5px; color:var(--ink-3); }
 .tm.off .tm-em, .tm.off .tm-name{ opacity:.45; filter:grayscale(1); }
+.tm-amt{ flex:none; display:inline-flex; align-items:center; gap:3px;
+  border:1px solid var(--hairline); border-radius:10px; padding:3px 8px 3px 9px;
+  background:rgba(255,255,255,.5); }
+:root[data-theme="dark"] .tm-amt,
+:root:not([data-theme="light"]) .tm-amt{ background:rgba(255,255,255,.07); }
+.tm-amt:focus-within{ outline:2px solid var(--blue-500); outline-offset:1px; }
+.tm-cur{ font-size:12.5px; font-weight:700; color:var(--ink-3); }
+.tm-amt input{ width:44px; border:0; background:transparent; color:var(--ink-1);
+  font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; padding:4px 0;
+  -moz-appearance:textfield; }
+.tm-amt input:focus{ outline:none; }
+.tm-amt input::-webkit-outer-spin-button,
+.tm-amt input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+.tm.off .tm-amt{ opacity:.45; }
+
 .tm-btn{ flex:none; border:1px solid var(--hairline); background:transparent; color:var(--ink-2);
   border-radius:10px; padding:7px 13px; font-size:12.5px; font-weight:700; cursor:pointer;
   transition:color .2s, border-color .2s, transform .15s var(--ease); }
