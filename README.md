@@ -45,10 +45,16 @@ gives everyone one shared database.
 
 1. Go to <https://console.firebase.google.com> → **Add project**. Name it
    anything; you can switch Google Analytics off.
-2. **Build → Firestore Database → Create database** → *Start in production mode*
-   → pick a region near you (`eur3` for Europe).
-3. **Build → Authentication → Get started → Sign-in method → Anonymous → Enable.**
-   (The app signs in silently; nobody ever sees a login screen.)
+2. **Firestore** (`Databases and storage → Firestore Database`) → **Create
+   database** → *production mode* → region `eur3` for Europe.
+   **Leave the Database ID box alone** so it creates `(default)`, parentheses
+   included — that is the one the SDK looks for. If you do name it something
+   else, put that name in `firestoreDatabaseId` in `config.js`; this project is
+   set to `"default"` because that is how its database was created.
+3. **Authentication** (`Security → Authentication`) → Get started → Sign-in
+   method → **Anonymous → Enable**. The app signs in silently; nobody ever sees a
+   login screen. Menu names differ between console versions — Firestore may sit
+   under *Databases and storage* and Authentication under *Security*.
 4. **Firestore Database → Rules** → replace everything with the contents of
    [`firestore.rules`](firestore.rules) → **Publish**.
 5. **Project settings (⚙) → Your apps → Web (`</>`) → register the app.** Copy the
