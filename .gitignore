@@ -1,3 +1,12 @@
 .DS_Store
 *.log
 config.local.js
+
+# Never commit credentials. A Firebase service-account key grants full admin
+# access to the project and bypasses every security rule.
+*serviceaccount*.json
+*service-account*.json
+*adminsdk*.json
+*.pem
+*.key
+firebase-config.txt
